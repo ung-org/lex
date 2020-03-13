@@ -2,7 +2,7 @@
 
 CFLAGS=-D_XOPEN_SOURCE=700 -g
 
-all: l
+all: lex
 
 l: lex-ere.l lex-ere.y
 	yacc -b lex-ere -d lex-ere.y
