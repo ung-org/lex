@@ -1,5 +1,6 @@
 #define _XOPEN_SOURCE 700
 
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -28,6 +29,11 @@
 #define MIN_CLASSES	1000
 #define MIN_OUTPUTSIZE	3000
 
+struct definition {
+	char *name;
+	char *substitute;
+};
+
 struct parser {
 	enum { UNSPECIFIED, POINTER, ARRAY } yytexttype;
 	int maxpositions;
@@ -48,10 +54,17 @@ struct parser {
 	char *top;
 	char *init;
 	char *bottom;
+
+	size_t ndefs;
+	char *defs;
 };
 
 char *append(char *buf, const char *add)
 {
+	if (buf == NULL) {
+		return strdup(add);
+	}
+
 	size_t oldlen = buf ? strlen(buf) : 0;
 	size_t newlen = strlen(add);
 	char *tmp = realloc(buf, oldlen + newlen);
@@ -62,6 +75,66 @@ char *append(char *buf, const char *add)
 	buf = tmp;
 	memcpy(buf + oldlen, add, newlen);
 	return buf;
+}
+
+static int add_directive(struct parser *p, const char *buf)
+{
+	if (!strcmp(buf, "%array\n")) {
+		p->yytexttype = ARRAY;
+		return 1;
+	}
+
+	if (!strcmp(buf, "%pointer\n")) {
+		p->yytexttype = POINTER;
+		return 1;
+	}
+
+	switch (buf[1]) {
+	case 'p':
+		p->npositions = atoi(buf + 2);
+		break;
+
+	case 'n':
+		p->nstates = atoi(buf + 2);
+		break;
+
+	case 'a':
+		p->ntransitions = atoi(buf + 2);
+		break;
+
+	case 'e':
+		p->nnodes = atoi(buf + 2);
+		break;
+
+	case 'k':
+		p->nclasses = atoi(buf + 2);
+		break;
+
+	case 'o':
+		p->outputsize = atoi(buf + 2);
+		break;
+
+	case 'x':
+	case 'X':
+		/* exclusive start condition */
+		break;
+
+	case 's':
+	case 'S':
+		/* start condition */
+		break;
+
+	default:
+		return 0;
+	}
+
+	return 1;
+}
+
+static int add_definition(struct parser *p, const char *buf)
+{
+	(void)p; (void)buf;
+	return 1;
 }
 
 struct parser *parse(struct parser *parser, const char *file)
@@ -109,6 +182,15 @@ struct parser *parse(struct parser *parser, const char *file)
 				}
 				line++;
 				RESETLINE(p.top);
+			} else if (isblank(buf[0])) {
+				MAYBEADDLINE(p.top, line, file);
+			} else if (buf[0] == '%') {
+				if (!add_directive(&p, buf)) {
+					fprintf(stderr, "lex: %s:%d: unknown directive %s", file, line, buf);
+					return NULL;
+				}
+			} else {
+				add_definition(&p, buf);
 			}
 		} else if (section == RULES) {
 			if (!strcmp("%%\n", buf)) {
