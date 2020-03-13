@@ -169,6 +169,11 @@ struct parser *parse(struct parser *parser, const char *file)
 		}
 		line++;
 
+		/* skip blank lines */
+		if (buf[0] == '\n') {
+			continue;
+		}
+
 		if (section == DEFINITIONS) {
 			if (!strcmp("%%\n", buf)) {
 				section = RULES;
