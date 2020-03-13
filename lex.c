@@ -334,6 +334,10 @@ int main(int argc, char *argv[])
 			break;
 			
 		default:
+			if (optopt == 'c') {
+				fprintf(stderr, "ignoring obsolete option -c\n");
+				break;
+			}
 			return 1;
 		}
 	}
